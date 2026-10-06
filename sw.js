@@ -1,5 +1,5 @@
 /* Pli — cache hors ligne : après une première visite, l'appli s'ouvre sans réseau. */
-const CACHE = 'pli-v3';
+const CACHE = 'pli-v4';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'lib/qrcode.js', 'lib/jsQR.js', 'manifest.webmanifest', 'icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
