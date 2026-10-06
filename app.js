@@ -230,10 +230,17 @@ function renderFoot(){
   const f = $('#storeNote');
   if (!store.ok) { f.className = 'side-foot warn'; f.textContent = "Stockage bloqué dans ce navigateur : tout sera effacé à la fermeture de la page."; return; }
   f.className = 'side-foot';
+  if (S.me && !S.settings.lastBackup && Object.values(S.contacts).some(c => !c.demo)) {
+    f.className = 'side-foot warn';
+    f.innerHTML = 'Votre compte n\'est pas sauvegardé. <button type="button" class="linkish" id="footBak">Sauvegarder</button>';
+    f.querySelector('#footBak').onclick = sheetBackup;
+    return;
+  }
   f.textContent = lockMeta ? 'Chiffré de bout en bout. Données protégées par votre code sur cet appareil.' : 'Chiffré de bout en bout. Clés et messages restent sur cet appareil.';
 }
 function lastOf(fp){ const l = S.msgs[fp] || []; return l[l.length-1]; }
 function renderList(){
+  renderFoot();
   const ul = $('#list');
   const cs = Object.values(S.contacts).sort((a,b) => ((lastOf(b.fp)||{}).t || b.added) - ((lastOf(a.fp)||{}).t || a.added));
   if (!cs.length) { ul.innerHTML = '<li class="sys" style="padding:20px 8px">Aucun contact. Scannez la carte d\'un proche avec « Ajouter », ou ouvrez un pli reçu.</li>'; return; }
@@ -475,6 +482,11 @@ function sheetSettings(){
       <p class="fine">Le code ne peut pas être récupéré. Si vous l'oubliez, il faudra tout effacer et recommencer.</p>`}
     </section>
     <hr class="sep">
+    <section class="group"><h3>Sauvegarde du compte</h3>
+      <p class="note">${S.settings.lastBackup ? 'Dernière sauvegarde : ' + dFmt.format(new Date(S.settings.lastBackup)) + ' à ' + tFmt.format(new Date(S.settings.lastBackup)) + '.' : "Aucune sauvegarde pour l'instant. Sans elle, changer de téléphone ou effacer le navigateur fait perdre votre compte."}</p>
+      <div class="actions"><button class="btn primary" type="button" id="bakBtn">Sauvegarder mon compte</button><button class="btn" type="button" id="restBtn">Restaurer une sauvegarde</button></div>
+    </section>
+    <hr class="sep">
     <section class="group"><h3>Cet appareil</h3>
       <p class="note">Efface votre identité, vos contacts et tous les messages enregistrés dans ce navigateur.</p>
       <button class="btn danger" type="button" id="wipeBtn">Effacer cet appareil</button>
@@ -482,6 +494,8 @@ function sheetSettings(){
   `, root => {
     const q = s => root.querySelector(s);
     armButton(q('#wipeBtn'), 'Confirmer : tout effacer', wipeAll);
+    q('#bakBtn').onclick = sheetBackup;
+    q('#restBtn').onclick = () => sheetRestore();
     if (!store.ok) return;
     if (!on) {
       q('#pinSet').addEventListener('submit', async e => {
@@ -510,6 +524,125 @@ function sheetSettings(){
       if (!(await verifyPin(q('#pinCur').value))) { busy(false); msg.className = 'note err'; msg.textContent = 'Saisissez votre code actuel pour désactiver le verrouillage.'; return; }
       lockMeta = null; lockKey = null; await flushSave(); renderMe(); renderFoot(); closeSheet(); toast('Verrouillage désactivé. Les données ne sont plus protégées par un code.');
     };
+  });
+}
+/* ---------- sauvegarde et restauration du compte ----------
+   SAUV1 = PBKDF2-SHA256 (600 000 itérations) sur la phrase secrète -> AES-GCM 256,
+   appliqué au compte compressé. La phrase secrète n'est jamais enregistrée. */
+const BAK_ITER = 600000, BAK_AD = enc.encode('pli-sauv/1');
+const passOk = p => p.length >= 8;
+async function makeBackup(pass, withMsgs){
+  const msgs = {};
+  for (const fp of Object.keys(S.contacts)) msgs[fp] = withMsgs ? (S.msgs[fp] || []) : [];
+  const data = {v:1, at:Date.now(), me:S.me, demo:S.demo, contacts:S.contacts, msgs, settings:S.settings};
+  const plain = await zpack(data);
+  const salt = rand(16), iv = rand(12);
+  const key = await pinKey(pass.normalize('NFC'), salt, BAK_ITER);
+  const c = await crypto.subtle.encrypt({name:'AES-GCM', iv, additionalData:BAK_AD}, key, enc.encode(plain));
+  return 'SAUV1.' + packJSON({v:1, s:b64u(salt), n:BAK_ITER, i:b64u(iv), c:b64u(c)});
+}
+async function openBackup(code, pass){
+  let o; try { o = unpackJSON(code.slice(6)); } catch(e) { throw new Error('damaged'); }
+  if (!o || !o.c || !o.s || !o.i) throw new Error('damaged');
+  const iter = Math.min(Math.max(Number(o.n) || BAK_ITER, 100000), 5000000);
+  const key = await pinKey(pass.normalize('NFC'), unb64u(o.s), iter);
+  let pt; try { pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64u(o.i), additionalData:BAK_AD}, key, unb64u(o.c)); }
+  catch(e) { throw new Error('pass'); }
+  let data; try { data = await zunpack(dec.decode(pt)); } catch(e) { throw new Error('damaged'); }
+  if (!data || !data.me || !data.me.priv || !data.me.pub || !data.me.pub.x) throw new Error('damaged');
+  return data;
+}
+async function applyRestore(data){
+  for (const fp of [...live.keys()]) liveDrop(fp, true);
+  abortRtc(rtcPending); keyCache.clear(); liveQueue.length = 0;
+  const st = migrate(Object.assign(emptyState(), {
+    me:data.me, demo:data.demo || null, contacts:data.contacts || {}, msgs:data.msgs || {},
+    settings:Object.assign({autoLock:5}, data.settings || {}),
+  }));
+  st.me.fp = await fingerprint(st.me.pub);
+  await crypto.subtle.importKey('jwk', st.me.priv, EC, false, ['deriveBits']);   // clé privée valide ?
+  for (const fp of Object.keys(st.contacts)) if (!Array.isArray(st.msgs[fp])) st.msgs[fp] = [];
+  S = st; current = null;
+  await flushSave();
+  closeSheet(); $('#onboard').hidden = true; $('#lock').hidden = true; boot();
+}
+function sheetBackup(){
+  const nMsgs = Object.values(S.msgs).reduce((a, l) => a + l.length, 0);
+  openSheet('Sauvegarder mon compte', `
+    <p>La sauvegarde contient votre identité (vos clés), vos contacts et, si vous le voulez, vos messages. Elle est chiffrée avec une phrase secrète : sans elle, personne ne peut l'ouvrir.</p>
+    <form class="more" id="bakForm">
+      <div class="field"><label for="bakP1">Phrase secrète (8 caractères minimum)</label><input class="input" id="bakP1" type="password" autocomplete="new-password" autofocus></div>
+      <div class="field"><label for="bakP2">Confirmez la phrase secrète</label><input class="input" id="bakP2" type="password" autocomplete="new-password"></div>
+      <label class="check"><input type="checkbox" id="bakMsgs" ${nMsgs ? 'checked' : ''}><span>Inclure les messages (${nMsgs})</span></label>
+      <p class="note" id="bakMsg" aria-live="polite"></p>
+      <button class="btn primary" type="submit" id="bakMake">Créer la sauvegarde</button>
+    </form>
+    <p class="fine">Choisissez une phrase facile à retenir mais longue, par exemple quatre mots sans rapport. Elle n'est enregistrée nulle part : notez-la à part.</p>
+    <div class="group" id="bakOut" hidden></div>
+  `, root => {
+    const q = s => root.querySelector(s), msg = q('#bakMsg');
+    q('#bakForm').addEventListener('submit', async e => {
+      e.preventDefault(); const p1 = q('#bakP1').value, p2 = q('#bakP2').value;
+      if (!passOk(p1)) { msg.className = 'note err'; msg.textContent = 'La phrase secrète doit compter au moins 8 caractères.'; return; }
+      if (p1 !== p2) { msg.className = 'note err'; msg.textContent = 'Les deux phrases sont différentes.'; return; }
+      q('#bakMake').disabled = true; msg.className = 'note'; msg.textContent = 'Chiffrement de la sauvegarde…';
+      let code;
+      try { code = await makeBackup(p1, q('#bakMsgs').checked); }
+      catch(err) { q('#bakMake').disabled = false; msg.className = 'note err'; msg.textContent = "La sauvegarde n'a pas pu être créée. Réessayez."; return; }
+      S.settings.lastBackup = Date.now(); save(); renderFoot();
+      const day = new Date().toISOString().slice(0,10);
+      q('#bakForm').hidden = true; root.querySelector('.fine').hidden = true;
+      const out = q('#bakOut'); out.hidden = false;
+      out.innerHTML = `
+        <p class="note ok">Sauvegarde prête · ${fmtBytes(code.length)}.</p>
+        <p>Enregistrez-la <b>hors de cet appareil</b> : sur un ordinateur, une clé USB, ou envoyez-la-vous par e-mail. Pour la restaurer : « J'ai déjà un compte » au premier écran de Pli.</p>
+        ${code.length <= QR_MAX && HAS_QR ? qrSvg(code, 'L') + '<p class="qr-cap">Vous pouvez aussi photographier ce QR.</p>' : ''}
+        ${codeBlock(code)}`;
+      wireCode(out, code, `pli-sauvegarde-${slug(S.me.name)}-${day}.txt`, kind => { if (kind === 'save') toast('Sauvegarde enregistrée.'); });
+    });
+  });
+}
+const BAK_RE = /SAUV1\.[A-Za-z0-9_-]+/;
+function sheetRestore(prefill){
+  const hasAccount = !!S.me;
+  openSheet('Restaurer un compte', `
+    ${hasAccount ? "<p class=\"note err\">La restauration remplace l'identité, les contacts et les messages actuels de cet appareil.</p>" : ''}
+    <p>Choisissez le fichier de sauvegarde, scannez son QR ou collez son code (il commence par <span class="fp">SAUV1.</span>).</p>
+    <div class="drop"><label for="bakFile">Choisir le fichier de sauvegarde</label><input type="file" id="bakFile" accept=".txt,.pli,text/plain" hidden></div>
+    ${scannerHTML('Scanner le QR de sauvegarde')}
+    <div class="field"><label for="bakIn">Code de sauvegarde</label><textarea class="code" id="bakIn" rows="3" placeholder="SAUV1.…">${esc(prefill || '')}</textarea></div>
+    <div class="field"><label for="bakPass">Phrase secrète</label><input class="input" id="bakPass" type="password" autocomplete="current-password"></div>
+    <p class="note" id="bakMsg" aria-live="polite"></p>
+    <button class="btn primary" type="button" id="bakGo">Restaurer mon compte</button>
+  `, root => {
+    const q = s => root.querySelector(s), msg = q('#bakMsg'), go = q('#bakGo');
+    const say = (t, cls) => { msg.className = 'note' + (cls ? ' ' + cls : ''); msg.textContent = t; };
+    const setCode = txt => {
+      const m = (txt || '').replace(/\s+/g, '').match(BAK_RE);
+      if (!m) { say("Ce n'est pas une sauvegarde Pli : elle commence par SAUV1.", 'err'); return; }
+      q('#bakIn').value = m[0]; say('Sauvegarde chargée. Saisissez maintenant la phrase secrète.', 'ok');
+      if (!coarse) q('#bakPass').focus();
+    };
+    q('#bakFile').onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) setCode(await f.text()); };
+    q('#bakPass').addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
+    let armed = false;
+    go.onclick = async () => {
+      const m = q('#bakIn').value.replace(/\s+/g, '').match(BAK_RE), pass = q('#bakPass').value;
+      if (!m) { say("Ajoutez d'abord la sauvegarde : fichier, QR ou code.", 'err'); return; }
+      if (!pass) { say('Saisissez la phrase secrète choisie lors de la sauvegarde.', 'err'); return; }
+      if (hasAccount && !armed) { armed = true; go.textContent = 'Confirmer : remplacer le compte actuel'; go.classList.remove('primary'); go.classList.add('danger', 'armed'); return; }
+      go.disabled = true; say('Déchiffrement…');
+      try {
+        const data = await openBackup(m[0], pass);
+        await applyRestore(data);
+        const n = Object.values(S.contacts).filter(c => !c.demo).length;
+        toast(`Compte de ${S.me.name} restauré · ${plural(n, 'contact', 'contacts')}.`, 4000);
+      } catch(e) {
+        go.disabled = false;
+        say(e.message === 'pass' ? 'Phrase secrète incorrecte.' : 'Cette sauvegarde est abîmée ou incomplète.', 'err');
+      }
+    };
+    return wireScanner(root, txt => setCode(txt));
   });
 }
 function wipeAll(){
@@ -543,7 +676,7 @@ function ingest(fromFp, fromPub, payload){
   list.sort((a,b) => a.t - b.t);
   return {added, dup, isNew};
 }
-const TOKEN_RE = /(?:PLI1|CARTE1|LIEN1|REP1)\.[A-Za-z0-9_-]+/g;
+const TOKEN_RE = /(?:PLI1|CARTE1|LIEN1|REP1|SAUV1)\.[A-Za-z0-9_-]+/g;
 async function receiveText(tokens){
   const r = {cards:0, known:0, msgs:0, dup:0, newContacts:0, errors:[], lastFp:null};
   for (const t of tokens) {
@@ -569,6 +702,8 @@ async function handleIncoming(text, fromSheet){
   const tokens = [...new Set((text || '').replace(/\s+/g, '').match(TOKEN_RE) || [])];
   if (!tokens.length) { toast('Aucun code Pli trouvé. Un pli commence par PLI1., une carte par CARTE1.', 4000); return; }
   const lien = tokens.find(t => t.startsWith('LIEN1.')), rep = tokens.find(t => t.startsWith('REP1.'));
+  const sauv = tokens.find(t => t.startsWith('SAUV1.'));
+  if (sauv) return sheetRestore(sauv);
   if (lien) return startResponder(lien);
   if (rep) return applyAnswer(rep);
   const r = await receiveText(tokens);
@@ -838,7 +973,7 @@ document.addEventListener('paste', e => {
   const tgt = e.target; const inField = tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA');
   if (inField && tgt !== inp) return;
   const txt = (e.clipboardData || window.clipboardData).getData('text');
-  if (/(?:PLI1|CARTE1|LIEN1|REP1)\.[A-Za-z0-9_-]{20,}/.test(txt)) { e.preventDefault(); handleIncoming(txt); }
+  if (/(?:PLI1|CARTE1|LIEN1|REP1|SAUV1)\.[A-Za-z0-9_-]{20,}/.test(txt)) { e.preventDefault(); handleIncoming(txt); }
 });
 /* glisser-déposer un fichier */
 let dragN = 0;
@@ -936,6 +1071,7 @@ function boot(){
   $('#app').hidden = false; lastAct = Date.now(); renderAll();
   if (!isNarrow()) { const first = $('#list button[data-fp]'); if (first) openContact(first.dataset.fp); }
 }
+$('#restoreStart').onclick = () => sheetRestore();
 $('#onboardForm').addEventListener('submit', async e => {
   e.preventDefault(); const btn = $('#createBtn'); btn.disabled = true; btn.textContent = 'Génération des clés…';
   try {
