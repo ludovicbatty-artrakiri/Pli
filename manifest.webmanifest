@@ -1,0 +1,15 @@
+{
+  "name": "Pli — messagerie privée",
+  "short_name": "Pli",
+  "description": "Messagerie privée chiffrée de bout en bout, sans serveur ni réseau.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E7EBF0",
+  "theme_color": "#3144B3",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

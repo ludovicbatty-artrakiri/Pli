@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Messagerie Pli</title>
+<meta name="description" content="Messagerie privée chiffrée de bout en bout, sans serveur ni réseau.">
+<meta name="theme-color" content="#3144B3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F141A" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pli">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>html,body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-seal" viewBox="0 0 40 40"><path d="M20 2l4.2 3.1 5.2-.3 1.9 4.9 4.6 2.4-.9 5.2 2.4 4.6-3.6 3.8-.3 5.2-5 1.4-3 4.3-5-1.6-5 1.6-3-4.3-5-1.4-.3-5.2L3.6 22l2.4-4.6-.9-5.2 4.6-2.4 1.9-4.9 5.2.3z" fill="var(--accent)"/><path d="M13 15h14v11H13z M13 15l7 6 7-6" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2.5-6.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-in" viewBox="0 0 24 24"><path d="M12 4v11m-5-5l5 5 5-5M4 19h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-add" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c.8-3.5 3.6-5.5 7-5.5M18 13v7m-3.5-3.5h7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6m0-9.5v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 018 0v3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 14h2v2h-2zM18 14h2v2h-2zM16 16h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z" fill="currentColor"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.7 16a5 5 0 016.6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="19.2" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-del" viewBox="0 0 24 24"><path d="M9 6h11v12H9l-6-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="app" id="app" data-view="list" hidden>
+  <aside class="side" aria-label="Conversations">
+    <div class="side-head">
+      <div class="brand"><svg class="seal"><use href="#i-seal"/></svg><h1>Pli<small>Messagerie privée sans réseau</small></h1></div>
+      <button class="btn ghost icon-btn" id="lockBtn" type="button" aria-label="Verrouiller maintenant" title="Verrouiller maintenant" hidden><svg><use href="#i-lock"/></svg></button>
+      <button class="btn ghost icon-btn" id="setBtn" type="button" aria-label="Réglages" title="Réglages"><svg><use href="#i-gear"/></svg></button>
+    </div>
+    <button class="me" id="meBtn" type="button" aria-label="Ma carte de contact et son QR code">
+      <span class="av sm" id="meAv">?</span>
+      <span class="who"><b id="meName">…</b><span class="fp" id="meFp"></span></span>
+      <span class="me-qr"><svg><use href="#i-qr"/></svg>Ma carte</span>
+    </button>
+    <div class="side-actions">
+      <button class="btn" id="addBtn" type="button"><svg><use href="#i-add"/></svg>Ajouter</button>
+      <button class="btn primary" id="recvBtn" type="button"><svg><use href="#i-in"/></svg>Recevoir</button>
+    </div>
+    <ul class="list" id="list"></ul>
+    <div class="side-foot" id="storeNote"></div>
+  </aside>
+
+  <main class="chat" id="chat">
+    <div class="empty" id="emptyChat">
+      <div class="how">
+        <h2>Des messages qui voyagent sans Internet</h2>
+        <ol class="steps">
+          <li><span><b>Échangez vos cartes.</b> Faites scanner le QR de « Ma carte », ou envoyez-la comme fichier. Une seule fois par contact.</span></li>
+          <li><span><b>Écrivez.</b> Vos messages sont scellés sur l'appareil avec la clé de votre contact.</span></li>
+          <li><span><b>Remettez le pli.</b> En QR, par Bluetooth, AirDrop, clé USB ou SMS : seul le destinataire peut l'ouvrir.</span></li>
+          <li><span><b>Ou discutez en direct.</b> Sur le même Wi-Fi, même sans Internet, touchez « Direct » et scannez chacun un QR.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="chat-head" id="chatHead" hidden>
+      <button class="btn ghost icon-btn back" id="backBtn" type="button" aria-label="Retour aux conversations"><svg><use href="#i-back"/></svg></button>
+      <span class="av" id="cAv"></span>
+      <div class="who"><b id="cName"></b><button class="trust" id="cTrust" type="button"></button></div>
+      <button class="btn live-btn" id="liveBtn" type="button"><svg><use href="#i-wifi"/></svg><span>Direct</span></button>
+      <button class="btn ghost icon-btn" id="infoBtn" type="button" aria-label="Détails du contact"><svg><use href="#i-info"/></svg></button>
+    </div>
+    <div class="thread" id="thread" hidden aria-live="polite"></div>
+    <div class="pending-bar" id="pendBar" hidden><span id="pendTxt"></span><button class="btn primary" id="pendBtn" type="button"><svg><use href="#i-lock"/></svg><span>Préparer le pli</span></button></div>
+    <form class="composer" id="composer" hidden>
+      <textarea id="msgInput" rows="1" placeholder="Écrire un message…" aria-label="Message"></textarea>
+      <button class="btn primary send" type="submit" aria-label="Envoyer"><svg><use href="#i-send"/></svg></button>
+    </form>
+  </main>
+</div>
+
+<div class="cover" id="onboard" hidden>
+  <form class="card" id="onboardForm">
+    <svg class="seal" style="width:56px;height:56px"><use href="#i-seal"/></svg>
+    <h1>Pli</h1>
+    <p class="lede">Une messagerie privée qui n'a besoin d'aucun serveur ni d'aucune connexion. Chaque message est chiffré sur votre appareil, puis remis en QR code, en fichier, ou en direct sur le Wi-Fi local.</p>
+    <div class="field">
+      <label for="nameInput">Votre nom, tel que vos contacts le verront</label>
+      <input class="input" id="nameInput" maxlength="60" autocomplete="nickname" placeholder="Ex. Ludovic" required>
+    </div>
+    <button class="btn primary" type="submit" id="createBtn">Créer mon identité</button>
+    <p class="fine">Une paire de clés est générée sur cet appareil. La clé privée n'en sort jamais : personne d'autre, pas même l'application, ne peut lire vos messages.</p>
+  </form>
+</div>
+
+<div class="cover" id="lock" hidden>
+  <div class="lockcard">
+    <svg class="seal" style="width:52px;height:52px"><use href="#i-seal"/></svg>
+    <h1>Pli est verrouillé</h1>
+    <p class="lock-queue" id="lockQueue" hidden></p>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+    <p class="lock-msg" id="lockMsg" aria-live="polite">Saisissez votre code</p>
+    <div class="keypad" id="keypad">
+      <button class="key" type="button" data-k="1">1</button><button class="key" type="button" data-k="2">2</button><button class="key" type="button" data-k="3">3</button>
+      <button class="key" type="button" data-k="4">4</button><button class="key" type="button" data-k="5">5</button><button class="key" type="button" data-k="6">6</button>
+      <button class="key" type="button" data-k="7">7</button><button class="key" type="button" data-k="8">8</button><button class="key" type="button" data-k="9">9</button>
+      <button class="key fn" type="button" data-k="ok" id="okKey">OK</button><button class="key" type="button" data-k="0">0</button><button class="key fn" type="button" data-k="del" aria-label="Effacer le dernier chiffre"><svg><use href="#i-del"/></svg></button>
+    </div>
+    <details style="align-self:stretch"><summary>Code oublié ?</summary>
+      <div class="more"><p class="note">Le code ne peut pas être récupéré : il sert de clé de chiffrement. Vous pouvez seulement tout effacer et recommencer avec une nouvelle identité.</p>
+      <button class="btn danger" type="button" id="lockWipe">Effacer toutes les données de Pli</button></div>
+    </details>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head"><h2 id="sheetTitle"></h2><button class="btn ghost icon-btn" id="sheetClose" type="button" aria-label="Fermer"><svg><use href="#i-x"/></svg></button></div>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="lib/qrcode.js"></script>
+<script src="lib/jsQR.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
